@@ -15,7 +15,7 @@ humidity_placeholder = st.empty()
 chart_placeholder = st.empty()
 
 # Initialize the serial connection
-serial_port = '/dev/cu.usbmodem112201'  # Update this to your actual serial port
+serial_port = '/dev/cu.usbmodem1101'  # Update this to your actual serial port
 baud_rate = 9600
 
 try:

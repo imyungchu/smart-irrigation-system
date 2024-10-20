@@ -1,67 +1,52 @@
 import streamlit as st
-import random
+import serial
 import time
-import pandas as pd
+import re
 
 # Set the title for the app
-st.title("Smart Irrigation System - Real-Time Data")
+st.title("Smart Irrigation System - Real-Time Data (Serial Communication)")
 
-# Create placeholders for the current sensor values
+# Create placeholders for the data
 temperature_placeholder = st.empty()
-moisture_placeholder = st.empty()
-waterflow_placeholder = st.empty()
-light_placeholder = st.empty()
+humidity_placeholder = st.empty()
 
-# Create line charts for historical data tracking
-st.subheader("Sensor Data Trends")
-chart_placeholder = st.empty()
+# Initialize the serial connection
+serial_port = '/dev/cu.usbmodem112201'  # Update this to your actual serial port
+baud_rate = 9600
 
-# Store historical data in a DataFrame for plotting
-data = {
-    "Temperature (°C)": [],
-    "Soil Moisture (%)": [],
-    "Water Flow (L)": [],
-    "Light Intensity (lux)": [],
-    "Timestamp": []
-}
+try:
+    ser = serial.Serial(serial_port, baud_rate, timeout=1)
+    st.success(f"Connected to {serial_port}")
+except Exception as e:
+    st.error(f"Failed to connect to serial port: {e}")
+    ser = None
 
-# Mock function to simulate sensor data
-def get_mock_sensor_data():
-    temperature = round(random.uniform(20, 35), 2)  # Simulate temperature between 20°C and 35°C
-    soil_moisture = round(random.uniform(10, 80), 2)  # Simulate soil moisture percentage
-    water_flow = round(random.uniform(0.5, 5.0), 2)  # Simulate water flow in liters
-    light_intensity = round(random.uniform(100, 1000), 2)  # Simulate light intensity in lux
-    return temperature, soil_moisture, water_flow, light_intensity
+# Function to parse the serial data received from Arduino
+def parse_serial_data(data):
+    # Use regular expressions to extract the values for humidity and temperature
+    match = re.search(r'Humidity\s=\s([\d\.]+).*Temperature\s=\s([\d\.]+)', data)
+    if match:
+        humidity = float(match.group(1))
+        temperature = float(match.group(2))
+        return humidity, temperature
+    return None, None
 
-# Simulate streaming real-time data and update the line chart
-while True:
-    # Get new sensor values
-    temperature, soil_moisture, water_flow, light_intensity = get_mock_sensor_data()
+# Simulate streaming real-time data
+if ser:
+    while True:
+        # Read serial data
+        line = ser.readline().decode('utf-8').strip()
 
-    # Update current sensor value placeholders
-    temperature_placeholder.metric(label="Temperature (°C)", value=temperature)
-    moisture_placeholder.metric(label="Soil Moisture (%)", value=soil_moisture)
-    waterflow_placeholder.metric(label="Water Flow (L)", value=water_flow)
-    light_placeholder.metric(label="Light Intensity (lux)", value=light_intensity)
+        # If a valid line is received, parse it
+        if line:
+            st.write(f"Raw Serial Data: {line}")  # Optional: Show the raw serial data
+            humidity, temperature = parse_serial_data(line)
 
-    # Append new data to the DataFrame
-    timestamp = pd.Timestamp.now().strftime('%H:%M:%S')
-    data["Temperature (°C)"].append(temperature)
-    data["Soil Moisture (%)"].append(soil_moisture)
-    data["Water Flow (L)"].append(water_flow)
-    data["Light Intensity (lux)"].append(light_intensity)
-    data["Timestamp"].append(timestamp)
+            # Update placeholders with sensor data if valid
+            if humidity is not None and temperature is not None:
+                temperature_placeholder.metric(label="Temperature (°C)", value=temperature)
+                humidity_placeholder.metric(label="Humidity (%)", value=humidity)
 
-    # Keep only the latest 20 data points to avoid chart overflow
-    if len(data["Timestamp"]) > 20:
-        for key in data.keys():
-            data[key].pop(0)
-
-    # Create a DataFrame for chart plotting
-    df = pd.DataFrame(data).set_index("Timestamp")
-
-    # Display the line chart using Streamlit
-    chart_placeholder.line_chart(df)
-
-    # Update every 5 seconds
-    time.sleep(5)
+        time.sleep(2)  # Update every 2 seconds
+else:
+    st.error("No serial connection available.")

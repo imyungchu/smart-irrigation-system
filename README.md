@@ -53,4 +53,4 @@ streamlit run app.py
 
 ## Demo 🎥
 
-[FIXME]
+[Video](https://youtu.be/PWnxT7b0aEQ?si=r8G6RD1yi_lCUL8R)
